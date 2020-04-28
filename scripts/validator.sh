@@ -14,7 +14,7 @@
 # See the License for the specific TON DEV software governing permissions and limitations
 # under the License.
 
-#DEBUG="yes"
+DEBUG="yes"
 
 if [ "$DEBUG" = "yes" ]; then
     set -x
@@ -23,6 +23,8 @@ fi
 SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)
 # shellcheck source=env.sh
 . "${SCRIPT_DIR}/env.sh"
+
+date +"INFO: %F %T validator.sh running..."
 
 STAKE="${1:-100000}"
 
@@ -38,10 +40,6 @@ awk -v KEYS_DIR="${KEYS_DIR}" -v TON_BUILD_DIR="${TON_BUILD_DIR}" '{
         printf "-p " KEYS_DIR "/liteserver.pub -a 127.0.0.1:3031 ";
         printf "-rc \"runmethod -1:" substr($4, 15, 64) " ";
         print  "active_election_id\" -rc \"quit\" &> " KEYS_DIR "/elector-state"
-        printf TON_BUILD_DIR "/lite-client/lite-client ";
-        printf "-p " KEYS_DIR "/liteserver.pub -a 127.0.0.1:3031 ";
-        printf "-rc \"runmethod -1:" substr($4, 15, 64) " ";
-        print  "election_data\" -rc \"getconfig -32\" -rc \"quit\" &> " KEYS_DIR "/election-data"
         printf TON_BUILD_DIR "/utils/convert_address -1:" substr($4, 15, 64) " base64 -b > "
         print  KEYS_DIR "/elector-addr-base64"
     }
@@ -52,7 +50,7 @@ if [ "$DEBUG" = "yes" ]; then
     cat "${KEYS_DIR}/elector-run"
 fi
 
-bash "${KEYS_DIR}/elector-run"
+bash -x "${KEYS_DIR}/elector-run"
 
 awk '{
     if ($1 == "result:") {
@@ -60,18 +58,10 @@ awk '{
     }
 }' "${KEYS_DIR}/elector-state" >"${KEYS_DIR}/election-id"
 
-awk '{
-    if ($1 == "result:") {
-        print $0
-    } else if (substr($1, length($1)-15) == "ConfigParam(-32)") {
-        print $0
-    }
-}' "${KEYS_DIR}/election-data"
-
 election_id=$(cat "${KEYS_DIR}/election-id")
 
 if [ "$election_id" == "0" ]; then
-    date +"%F %T No current elections"
+    date +"INFO: %F %T No current elections"
     awk -v KEYS_DIR="${KEYS_DIR}" -v TON_BUILD_DIR="${TON_BUILD_DIR}" '{
         if (($1 == "new") && ($2 == "wallet") && ($3 == "address")) {
             addr = substr($5, 4)
@@ -89,7 +79,7 @@ if [ "$election_id" == "0" ]; then
         cat "${KEYS_DIR}/recover-run"
     fi
 
-    bash "${KEYS_DIR}/recover-run"
+    bash -x "${KEYS_DIR}/recover-run"
 
     awk '{
         if ($1 == "result:") {
@@ -108,7 +98,7 @@ if [ "$election_id" == "0" ]; then
             }
         }' "${KEYS_DIR}/${HOSTNAME}-dump" >"${KEYS_DIR}/recover-run1"
 
-        bash "${KEYS_DIR}/recover-run1"
+        bash -x "${KEYS_DIR}/recover-run1"
 
         awk -v validator="$HOSTNAME" -v KEYS_DIR="${KEYS_DIR}" -v TON_BUILD_DIR="${TON_BUILD_DIR}" -v TON_SRC_DIR="${TON_SRC_DIR}" '{
             if (NR == 1) {
@@ -135,10 +125,11 @@ if [ "$election_id" == "0" ]; then
             cat "${KEYS_DIR}/recover-run2"
         fi
 
-        bash "${KEYS_DIR}/recover-run2"
+        bash -x "${KEYS_DIR}/recover-run2"
         date +"INFO: %F %T Recover of $recover_amount RB requested"
     fi
 
+    date +"INFO: %F %T validator.sh running... DONE"
     exit
 fi
 
@@ -155,7 +146,7 @@ if [ "$DEBUG" = "yes" ]; then
     cat "${KEYS_DIR}/wallet-state-run"
 fi
 
-bash "${KEYS_DIR}/wallet-state-run"
+bash -x "${KEYS_DIR}/wallet-state-run"
 
 has_grams=$(awk -v validator="$HOSTNAME" '{
     if ($1 == "amount:(var_uint") {
@@ -170,6 +161,7 @@ has_grams=$(awk -v validator="$HOSTNAME" '{
 
 if [ "$has_grams" = "" ]; then
     echo "INFO: \$has_grams is empty"
+    date +"INFO: %F %T validator.sh running... DONE"
     exit
 fi
 
@@ -177,12 +169,14 @@ echo "INFO: has_grams = ${has_grams}"
 
 if [ -f "${KEYS_DIR}/stop-election" ]; then
     echo "WARNING: manual stop of participation in elections with ${KEYS_DIR}/stop-election file"
+    date +"INFO: %F %T validator.sh running... DONE"
     exit
 fi
 
 if [ -f "${KEYS_DIR}/active-election-id" ]; then
     active_election_id=$(cat "${KEYS_DIR}/active-election-id")
     if [ "$active_election_id" == "$election_id" ]; then
+        date +"INFO: %F %T validator.sh running... DONE"
         exit
     fi
 fi
@@ -250,7 +244,7 @@ if [ "$DEBUG" = "yes" ]; then
     cat "${KEYS_DIR}/elector-run1"
 fi
 
-bash "${KEYS_DIR}/elector-run1"
+bash -x "${KEYS_DIR}/elector-run1"
 
 awk -v validator="$HOSTNAME" -v KEYS_DIR="${KEYS_DIR}" -v TON_BUILD_DIR="${TON_BUILD_DIR}" '{
     if (NR == 2) {
@@ -268,7 +262,7 @@ if [ "$DEBUG" = "yes" ]; then
     cat "${KEYS_DIR}/elector-run2"
 fi
 
-bash "${KEYS_DIR}/elector-run2"
+bash -x "${KEYS_DIR}/elector-run2"
 
 awk -v validator="$HOSTNAME" -v KEYS_DIR="${KEYS_DIR}" -v TON_BUILD_DIR="${TON_BUILD_DIR}" -v TON_SRC_DIR="${TON_SRC_DIR}" '{
     if (NR == 1) {
@@ -291,7 +285,7 @@ if [ "$DEBUG" = "yes" ]; then
     cat "${KEYS_DIR}/elector-run3"
 fi
 
-bash "${KEYS_DIR}/elector-run3"
+bash -x "${KEYS_DIR}/elector-run3"
 
 awk -v validator="$HOSTNAME" -v KEYS_DIR="${KEYS_DIR}" -v stake="$STAKE" -v TON_BUILD_DIR="${TON_BUILD_DIR}" -v TON_SRC_DIR="${TON_SRC_DIR}" '{
     if (NR == 1) {
@@ -317,6 +311,7 @@ if [ "$DEBUG" = "yes" ]; then
     cat "${KEYS_DIR}/elector-run4"
 fi
 
-bash "${KEYS_DIR}/elector-run4"
+bash -x "${KEYS_DIR}/elector-run4"
 
-date +"%F %T prepared for elections"
+date +"INFO: %F %T prepared for elections"
+date +"INFO: %F %T validator.sh running... DONE"
